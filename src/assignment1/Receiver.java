@@ -14,15 +14,21 @@ public class Receiver implements Runnable{
 		while(true) {
 			
 			try {
-				byte[] msgByte = new byte[1024];
+				
+				byte[] msgByte = new byte[512];
+
 				DatagramPacket packet = new DatagramPacket(msgByte, msgByte.length);
 				socket.receive(packet);
 				
 				String msg = new String(msgByte);
-				System.out.println(msg);
+				int nullIndex = msg.indexOf(0);
+				if(nullIndex == -1) System.out.print(msg);
+				else System.out.print(msg.substring(0,nullIndex)); 
+				
 			}
 			catch(Exception e) {
-			
+				e.printStackTrace();
+				System.exit(1);
 			};
 		}
 	}

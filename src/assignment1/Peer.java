@@ -5,7 +5,6 @@ import java.util.Scanner;
 
 public class Peer {
 	
-	
 	static private int port;
 	static private NetworkInterface NI;
 	static private MulticastSocket socket;
@@ -16,56 +15,62 @@ public class Peer {
 	
 	
 	
-	public static void main(String[] args) throws Exception {
+	public static void main(String[] args) {
 		
-		
-		if(args.length == 0) {
-			System.out.println("please input port.");
-			return;
-		}
-		else {
-			System.out.println("welcome to chat program!");
+		try {
 			
-			port = Integer.parseInt(args[0]);
-			NI = NetworkInterface.getByName("le0");
-			socket = new MulticastSocket(port);
-			
-			multiAddress = null;
-			userName = "command";
-			receiver = new Thread(new Receiver(socket));
-			receiver.start();
-		}
-		
-		Scanner scan = new Scanner(System.in);
-		while(true) {
-			
-			String input = scan.nextLine();
-			
-			if(input.charAt(0) == '#') {
+			if(args.length == 0) {
+				System.out.println("please input port.");
+				return;
+			}
+			else if(Integer.parseInt(args[0]) < 1 || Integer.parseInt(args[0]) > 999) {
+				System.out.println("please input port within 1 to 999.");
+				return;
+			}
+			else {
+				System.out.println("welcome to chat program!");
 				
-				String[] words = input.split(" ");
+				port = Integer.parseInt(args[0]);
+				NI = NetworkInterface.getByName("le0");
+				socket = new MulticastSocket(port);
 				
-				if(words.length == 3 && words[0].equalsIgnoreCase("#JOIN")) {
-					if(multiAddress != null)
-						System.out.println("already join chat room.");
-					else join(words[1], words[2]);
-				}
-				
-				else if(words.length == 1 && words[0].equalsIgnoreCase("#EXIT")) {
-					if(multiAddress == null)
-						System.out.println("already exit chat room.");
-					else exit();
-				}
-				
-				else System.out.println("wrong command.");
+				multiAddress = null;
+				userName = null;
+				receiver = new Thread(new Receiver(socket));
+				receiver.start();
 			}
 			
-			else if(multiAddress != null) send(userName + ": " + input);
-			
-			else System.out.println("you are not in chat room.");
+			Scanner scan = new Scanner(System.in);
+			while(true) {
+				
+				String input = scan.nextLine();
+				
+				if(input.charAt(0) == '#') {
+					String[] words = input.split(" ");
+					
+					if(words.length == 3 && words[0].equalsIgnoreCase("#JOIN")) {
+						if(multiAddress != null) exit();
+						join(words[1], words[2]);
+					}
+					
+					else if(words.length == 1 && words[0].equalsIgnoreCase("#EXIT")) {
+						if(multiAddress == null) {
+							System.out.println("exit from the chat program...");
+							System.exit(0);
+						}
+						else exit();
+					}
+					else System.out.println("wrong command.");
+				}
+				else if(multiAddress != null) send(userName + ": " + input + "\n");
+				else System.out.println("you are not in chat room.");	
+			}
 			
 		}
-	
+		catch(Exception e) {
+			e.printStackTrace();
+			System.exit(1);
+		}
 	}
 	
 //--------------------------------------------------------------------------------	
@@ -92,7 +97,7 @@ public class Peer {
 	
 	private static void exit() throws Exception {
 		socket.leaveGroup(new InetSocketAddress(multiAddress,0), NI);
-		userName = "command";
+		userName = null;
 		multiAddress = null;
 		
 		System.out.println("*** exit ***");
@@ -100,11 +105,16 @@ public class Peer {
 	}
 	
 	private static void send(String msg) throws Exception {
-		for(int i=1; i<1000; i++) {
-			if(i == port) continue;
-			
-			byte[] msgByte = (msg).getBytes();
-			DatagramPacket packet = new DatagramPacket(msgByte, msgByte.length, multiAddress, i);
+		if(msg.length() <= 512) sendChunk(msg.getBytes());
+		else {
+			sendChunk(msg.substring(0, 512).getBytes());
+			send(msg.substring(512));
+		}
+	}
+	
+	private static void sendChunk(byte[] chunk) throws Exception {
+		for(int i=1; i<1000; i++) {			
+			DatagramPacket packet = new DatagramPacket(chunk, chunk.length, multiAddress, i);
 			socket.send(packet);
 		}
 	}
